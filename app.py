@@ -15,7 +15,7 @@ except Exception as e:
 
 # Weather API Details (same as before)
 BASE_URL = "https://api.weatherapi.com/v1/current.json?"
-API_KEY = "edddd5aeaba8424f88595759251602"
+API_KEY = ""
 
 
 def calculate_fire_risk(temp, humidity, wind_speed):
