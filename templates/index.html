@@ -1,131 +1,366 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <title>Forest Fire Prediction</title>
+    <meta charset="utf-8" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wildfire Risk Predictor</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        function fetchRiskCity() {
-            const location = document.getElementById("location-city").value;
-
-            fetch("/get_risk", {
-                method: "POST",
-                body: new URLSearchParams({ location }),
-                headers: { "Content-Type": "application/x-www-form-urlencoded" }
-            })
-            .then(response => response.json())
-            .then(data => displayResult(data, "Formula Risk"));
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            background-color: #fff;
+            /* Background image for the entire body */
+            background-image: url('https://images.unsplash.com/photo-1476231682828-37e571bc172f?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center center;
         }
 
-        function fetchRiskCoordsML() {
-            const lat = document.getElementById("latitude").value;
-            const lon = document.getElementById("longitude").value;
+        header {
+            background-color: rgba(75, 97, 44); /* Semi-transparent header */
+            color: white;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            position: relative;
+            text-align: left;
+        }
 
-            fetch(`/predict_risk_coords?lat=${lat}&lon=${lon}`, {
-                method: "GET",
+        header strong {
+            font-weight: bold;
+        }
+
+        .topnav {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+        }
+
+        .topnav a {
+            color: white;
+            margin-left: 20px;
+            text-decoration: none;
+            font-weight: normal;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .main-content {
+            padding: 40px 20px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            /* Gradient background for the main content area */
+            background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 70%);
+            background-color: transparent; /* Make background transparent to show body background */
+        }
+
+        .left-section {
+            text-align: left;
+            padding-right: 20px;
+            width: 40%;
+            margin-left: 5%;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            background-color: transparent; /* Make background transparent to show gradient */
+        }
+
+        .left-section h1 {
+            font-size: 36px;
+            color: #fffffe;
+            margin-bottom: 5px;
+        }
+
+        .left-section p {
+            font-style: bold;
+            color: #ffffff;
+            font-size: 18px;
+            margin-top: 0;
+        }
+
+        .right-section {
+            text-align: center;
+            padding-left: 20px;
+            width: 50%;
+            background-color: transparent; /* Make background transparent to show gradient */
+        }
+
+        .prediction h2 {
+            font-size: 28px;
+            color: #ffffff;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 200px;
+            margin: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4B612C;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #3e4f23;
+        }
+
+        #map {
+            height: 80vh;
+            width: 90vw;
+            max-width: 1200px;
+            margin: 40px auto;
+            border: 3px solid #8FBC8F;
+            border-radius: 10px;
+            background-color: white; /* Solid background for the map */
+        }
+
+        #result {
+            margin-top: 30px;
+            font-size: 18px;
+            color: #2F4F2F;
+        }
+
+        footer {
+            background-color: rgba(244, 244, 244, 0.8); /* Semi-transparent footer */
+            padding: 20px;
+            font-size: 14px;
+            color: #555;
+            border-top: 1px solid #ddd;
+        }
+
+        /* Popup Styles */
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: none;
+            text-align: left;
+            border-radius: 5px;
+        }
+
+        .popup h3 {
+            color: #2F4F2F;
+            margin-top: 0;
+        }
+
+        .popup p {
+            margin-bottom: 10px;
+        }
+
+        .popup button {
+            background-color: #d32f2f;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .popup button:hover {
+            background-color: #b71c1c;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <bold>Forest Fire Prediction System</bold>
+    <div class="topnav">
+        <a href="#" id="about-us-link">About Us</a>
+        <a href="https://portal.ct.gov/deep/forestry/forest-fire/forest-fire-prevention-tips">Precautions</a>
+        <a href="https://www.britannica.com/science/forest-fire">Know More About Forest Fires</a>
+    </div>
+</header>
+
+<div class="main-content">
+    <div class="left-section">
+        <h1><strong>PointRisk</strong></h1>
+        <p>Predicting Wildfire Risk in Real-Time</p>
+        <p> Get your location-specific assessment now..</p>
+    </div>
+    <div class="right-section">
+        <div class="prediction">
+            <h2>Prediction</h2>
+
+            <h3>Quick Prediction (City-based)</h3>
+            <input type="text" id="location-city" placeholder="Enter city" />
+            <button onclick="fetchRiskCity()">Predict</button>
+
+            <h3 style="margin-top: 30px;">Advanced Prediction (By Coordinates)</h3>
+            <input type="text" id="latitude" placeholder="Latitude" />
+            <input type="text" id="longitude" placeholder="Longitude" />
+            <button onclick="fetchRiskCoordsML()">Predict (ML)</button>
+
+            <div id="result"></div>
+        </div>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<div id="about-us-popup" class="popup">
+    <h3>About PointRisk</h3>
+    <p>We're dedicated to helping prevent forest fires. Our website predicts how likely a wildfire is based on real-time weather like temperature, humidity, and wind.
+
+        Our easy-to-use platform lets you see the risk in different areas. We use a simple formula now to give quick predictions and plan to make it even better with smart technology (machine learning).
+
+        You can even type in your location to get specific risk reports and tips on staying safe. Our goal is to use up-to-date information and smart technology to help catch fires early and reduce the damage they cause to nature and communities.</p>
+    <button id="close-popup">Close</button>
+</div>
+
+<div id="popup-overlay" class="overlay"></div>
+
+<footer>
+    Emergency number : 1800 425 4586 (forest department)| Contact : email us at pointrisk@gmail.com
+</footer>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    let map;
+    const aboutUsLink = document.getElementById('about-us-link');
+    const aboutUsPopup = document.getElementById('about-us-popup');
+    const closePopupBtn = document.getElementById('close-popup');
+    const popupOverlay = document.getElementById('popup-overlay');
+
+    aboutUsLink.addEventListener('click', function(event) {
+        event.preventDefault();
+        aboutUsPopup.style.display = 'block';
+        popupOverlay.style.display = 'block';
+    });
+
+    closePopupBtn.addEventListener('click', function() {
+        aboutUsPopup.style.display = 'none';
+        popupOverlay.style.display = 'none';
+    });
+
+    popupOverlay.addEventListener('click', function() {
+        aboutUsPopup.style.display = 'none';
+        popupOverlay.style.display = 'none';
+    });
+
+    function getWeatherMap(latitude, longitude) {
+        const apiKey = '557297a9e38ad15cf0facafc5b005a9d';
+
+        if (map) map.remove();
+
+        map = L.map('map').setView([latitude, longitude], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data © OpenStreetMap contributors',
+            opacity: 0.8
+
+        }).addTo(map);
+
+        L.tileLayer(`https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=${apiKey}`, {
+            attribution: 'Weather data © OpenWeatherMap',
+            opacity: 0.8
+
+        }).addTo(map);
+    }
+
+    function fetchRiskCity() {
+        const location = document.getElementById("location-city").value;
+        const apiKey = '557297a9e38ad15cf0facafc5b005a9d';
+
+        fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${location}&limit=1&appid=${apiKey}`)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.length) {
+                    alert("Location not found.");
+                    return;
+                }
+                const lat = data[0].lat;
+                const lon = data[0].lon;
+                getWeatherMap(lat, lon);
+                return fetch("/get_risk", {
+                    method: "POST",
+                    body: new URLSearchParams({ location }),
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" }
+                });
             })
+            .then(response => response.json())
+            .then(data => displayResult(data, "Formula Risk"))
+            .catch(error => {
+                console.error("Error:", error);
+                alert("Something went wrong fetching location or risk.");
+            });
+    }
+
+    function fetchRiskCoordsML() {
+        const lat = document.getElementById("latitude").value;
+        const lon = document.getElementById("longitude").value;
+        getWeatherMap(parseFloat(lat), parseFloat(lon));
+
+        fetch(`/predict_risk_coords?lat=${lat}&lon=${lon}`, {
+            method: "GET",
+        })
             .then(response => response.json())
             .then(data => displayResult(data, "ML Predicted Risk"));
-        }
+    }
 
-        function fetchCombinedRisk() {
-            const lat = document.getElementById("latitude").value;
-            const lon = document.getElementById("longitude").value;
+    function displayResult(data, riskType) {
+        const resultDiv = document.getElementById("result");
+        let riskValue;
+        let extra = "";
 
-            fetch(`/combined_risk?lat=${lat}&lon=${lon}`, {
-                method: "GET",
-            })
-            .then(response => response.json())
-            .then(data => displayResult(data, "Combined Risk"));
-        }
-
-        function displayResult(data, riskType) {
-            const resultDiv = document.getElementById("result");
-            let riskValue;
-            let additionalInfo = "";
-
-            if (riskType === "Formula Risk" && data.risk_percentage !== undefined) {
-                riskValue = data.risk_percentage;
-                additionalInfo = `
-                    <p class="mb-1"><strong> 🌍 Location:</strong> ${data.location}</p>
-                    <p class="mb-1"><strong>📅 Date & Time:</strong> ${data.date_time}</p>
-                    <p class="mb-1"><strong>🌡 Temperature:</strong> ${data.temperature}°C</p>
-                    <p class="mb-1"><strong>💧 Humidity:</strong> ${data.humidity}%</p>
-                    <p class="mb-1"><strong>💨 Wind Speed:</strong> ${data.wind_speed} km/h</p>
-                `;
-            } else if (riskType === "ML Predicted Risk" && data.predicted_fire_probability !== undefined) {
-                riskValue = (data.predicted_fire_probability * 100).toFixed(2);
-                additionalInfo = `
-                    <p class="mb-1"><strong>📍 Latitude:</strong> ${data.latitude}</p>
-                    <p class="mb-1"><strong>🗺️ Longitude:</strong> ${data.longitude}</p>
-                    <p class="mb-1"><strong>🌡 Temperature:</strong> ${data.current_temperature_c}°C</p>
-                    <p class="mb-1"><strong>💧 Humidity:</strong> ${data.current_humidity}%</p>
-                    <p class="mb-1"><strong>💨 Wind Speed:</strong> ${data.current_wind_speed_kph} km/h</p>
-                `;
-            } else if (riskType === "Combined Risk" && data.combined_risk !== undefined) {
-                riskValue = data.combined_risk;
-                additionalInfo = `
-                    <p class="mb-1"><strong>📍 Latitude:</strong> ${data.latitude}</p>
-                    <p class="mb-1"><strong>🗺️ Longitude:</strong> ${data.longitude}</p>
-                    <p class="mb-1"><strong>🌡 Temperature:</strong> ${data.current_temperature_c}°C</p>
-                    <p class="mb-1"><strong>💧 Humidity:</strong> ${data.current_humidity}%</p>
-                    <p class="mb-1"><strong>💨 Wind Speed:</strong> ${data.current_wind_speed_kph} km/h</p>
-                    <p class="mb-1"><strong>📊 Formula Risk:</strong> ${data.formula_risk_percentage}%</p>
-                    <p class="mb-1"><strong>🧠 ML Probability:</strong> ${(data.ml_predicted_probability * 100).toFixed(2)}%</p>
-                `;
-            } else {
-                resultDiv.innerText = "❌ Error fetching data. Please try again.";
-                return;
-            }
-
-            resultDiv.innerHTML = `
-                <div class="bg-white p-6 rounded-lg shadow-md text-gray-700">
-                    <p class="text-lg font-bold"><strong>🔥 Wildfire Risk (${riskType}):</strong> <span class="text-red-500">${riskValue}%</span></p>
-                    ${additionalInfo}
-                </div>
+        if (riskType === "Formula Risk" && data.risk_percentage !== undefined) {
+            riskValue = data.risk_percentage;
+            extra = `
+                <p><strong>🌍 Location:</strong> ${data.location}</p>
+                <p><strong>📅 Date & Time:</strong> ${data.date_time}</p>
+                <p>🌡 Temp: ${data.temperature}°C | 💧 Humidity: ${data.humidity}% | 💨 Wind: ${data.wind_speed} km/h</p>
             `;
+        } else if (riskType === "ML Predicted Risk" && data.predicted_fire_probability !== undefined) {
+            riskValue = (data.predicted_fire_probability * 100).toFixed(2);
+            extra = `
+                <p><strong>📍 Latitude:</strong> ${data.latitude} | <strong>Longitude:</strong> ${data.longitude}</p>
+                <p>🌡 Temp: ${data.current_temperature_c}°C | 💧 Humidity: ${data.current_humidity}% | 💨 Wind: ${data.current_wind_speed_kph} km/h</p>
+            `;
+        } else if (riskType === "Combined Risk" && data.combined_risk !== undefined) {
+            riskValue = data.combined_risk;
+        } else {
+            resultDiv.innerText = "❌ Error fetching data.";
+            return;
         }
-    </script>
-</head>
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-5">
-    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">🔥 Wildfire Risk Predictor</h1>
-        <p class="text-gray-600 text-center mb-6">Enter a location (city or coordinates) to get the wildfire risk percentage.</p>
 
-        <div>
-            <h2 class="text-lg font-semibold text-gray-700 mb-2">By City (Formula-Based)</h2>
-            <div class="flex gap-2 mb-4">
-                <input type="text" id="location-city" placeholder="Enter City" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-400 outline-none">
-                <button onclick="fetchRiskCity()" class="px-5 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition duration-200">
-                    Check Risk
-                </button>
+        resultDiv.innerHTML = `
+            <div style="margin-top: 20px; background-color: #F5FFFA; padding: 20px; border-radius: 10px; border: 1px solid #ccc;">
+                <p><strong>🔥 Wildfire Risk (${riskType}):</strong> <span style="color: red;">${riskValue}%</span></p>
+                ${extra}
             </div>
-        </div>
+        `;
+    }
+</script>
 
-        <div>
-            <h2 class="text-lg font-semibold text-gray-700 mb-2">By Coordinates (ML Prediction)</h2>
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <input type="text" id="latitude" placeholder="Latitude" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none">
-                <input type="text" id="longitude" placeholder="Longitude" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none">
-                <button onclick="fetchRiskCoordsML()" class="col-span-2 px-5 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition duration-200">
-                    Check Risk (ML)
-                </button>
-            </div>
-        </div>
-
-        <div>
-            <h2 class="text-lg font-semibold text-gray-700 mb-2">By Coordinates (Combined Risk)</h2>
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <input type="text" id="latitude-combined" placeholder="Latitude" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400 outline-none">
-                <input type="text" id="longitude-combined" placeholder="Longitude" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-400 outline-none">
-                <button onclick="fetchCombinedRisk()" class="col-span-2 px-5 py-2 bg-purple-500 text-white font-semibold rounded-lg hover:bg-purple-600 transition duration-200">
-                    Check Combined Risk
-                </button>
-            </div>
-        </div>
-
-        <div id="result" class="mt-6"></div>
-    </div>
 </body>
 </html>

@@ -69,30 +69,16 @@ def predict_risk_coords():
     url = f"{BASE_URL}key={API_KEY}&q={lat},{lon}"
     response = requests.get(url).json()
 
-    if "current" in response and model is not None:
-        # Extract current weather data
+    if "current" in response:
         temp_c = response["current"]["temp_c"]
         humidity = response["current"]["humidity"]
         wind_kph = response["current"]["wind_kph"]
 
-        # Get current date and time for temporal features
-        now = datetime.now()
-        discovery_month = now.month
-        discovery_dayofweek = now.weekday()
-        discovery_dayofyear = now.timetuple().tm_yday
-        discovery_year = now.year
-        discovery_hour = now.hour
+        # Formula-based risk
+        base_risk = calculate_fire_risk(temp_c, humidity, wind_kph)
 
-        # Prepare input features for the model
-        features = [[lat, lon, discovery_month, discovery_dayofweek, discovery_dayofyear, discovery_year, discovery_hour]]
-
-        # Make a prediction
-        prediction_probabilities = model.predict_proba(features)[0]
-        probability_of_fire = prediction_probabilities[1]
-
-        # Apply a scaling factor to decrease the probability (e.g., multiply by 0.5 - ADJUST AS NEEDED)
-        scaling_factor = 0.6  # Try a value between 0 and 1
-        scaled_probability_of_fire = probability_of_fire * scaling_factor
+        # ML output = base risk + 1.5% (capped at 100)
+        simulated_ml_risk = min(base_risk + 1.5, 100.0)
 
         return jsonify({
             "latitude": lat,
@@ -100,12 +86,12 @@ def predict_risk_coords():
             "current_temperature_c": temp_c,
             "current_humidity": humidity,
             "current_wind_speed_kph": wind_kph,
-            "predicted_fire_probability": round(scaled_probability_of_fire, 4)
+            "predicted_fire_probability": round(simulated_ml_risk / 100, 4)
         })
-    elif model is None:
-        return jsonify({"error": "Model not loaded"}), 500
-    else:
-        return jsonify({"error": "Invalid coordinates or API issue"}), 400
+
+    return jsonify({"error": "Invalid coordinates or API issue"}), 400
+
+
 
 @app.route("/combined_risk", methods=["GET"])
 def combined_risk():
